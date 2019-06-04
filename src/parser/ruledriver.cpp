@@ -29,10 +29,6 @@ void MC::RuleDriver::parse( std::istream &stream ) {
     return;
 }
 
-void MC::RuleDriver::print_msg( std::string msg ) {
-   std::cout << msg << std::endl;
-}
-
 
 void MC::RuleDriver::parse_helper( std::istream &stream ) {
     delete(scanner);
