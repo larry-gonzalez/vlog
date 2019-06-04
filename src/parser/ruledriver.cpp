@@ -29,6 +29,10 @@ void MC::RuleDriver::parse( std::istream &stream ) {
     return;
 }
 
+void MC::RuleDriver::print_msg( std::string msg ) {
+   std::cout << msg << std::endl;
+}
+
 
 void MC::RuleDriver::parse_helper( std::istream &stream ) {
     delete(scanner);
@@ -59,7 +63,6 @@ void MC::RuleDriver::parse_helper( std::istream &stream ) {
 
 
 void MC::RuleAST::print(int sep/*=0*/){
-    std::cout << "starting print" << std::endl;
     print_indented("type: "  + type, sep);
     print_indented("value: " + value, sep);
     print_indented("first: ", sep);
@@ -72,7 +75,6 @@ void MC::RuleAST::print(int sep/*=0*/){
         second->print(sep+4);
     else
         std::cout << std::endl;
-    std::cout << "ending print" << std::endl;
 }
 
 
