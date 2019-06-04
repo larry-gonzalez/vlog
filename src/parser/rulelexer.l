@@ -30,9 +30,18 @@ using token = MC::RuleParser::token;
 
  /* See https://github.com/dajobe/raptor/blob/master/src/turtle_lexer.l */
  /* Tokens from Turtle 2013 spec - lex-ifyed to remove unicode ranges */
+ /* See https://www.w3.org/TR/rdf-sparql-query/ */
+
 HEX [0-9A-Fa-f]
 UCHAR "\\u"{HEX}{HEX}{HEX}{HEX}|"\\U"{HEX}{HEX}{HEX}{HEX}{HEX}{HEX}{HEX}{HEX}
-IRI "<"([^\x00-\x20<>\"{}\|^`\\]|{UCHAR})*">"
+IRI "<"([^\u00-\u20<>\"{}\|^`\\]|{UCHAR})*">"
+
+Var {VAR1}|{VAR2}
+VAR1 "?"{VARNAME}
+VAR2 "$"{VARNAME}
+VARNAME ({PN_CHARS_U}|[0-9])({PN_CHARS_U}|[0-9]|\u00B7|['\u0300'-'\u036F']|['\u203F'-'\u2040'])*
+PN_CHARS_U {PN_CHARS_BASE}|"_" 
+PN_CHARS_BASE [A-Z]|[a-z]|['\u00C0'-'\u00D6']|['\u00D8'-'\u00F6']|['\u00F8'-'\u02FF']|['\u0370'-'\u037D']|['\u037F'-'\u1FFF']|['\u200C'-'\u200D']|['\u2070'-'\u218F']|['\u2C00'-'\u2FEF']|['\u3001'-'\uD7FF']|['\uF900'-'\uFDCF']|['\uFDF0'-'\uFFFD']|['\u10000'-'\uEFFFF']
 
 %%
 
@@ -41,32 +50,102 @@ IRI "<"([^\x00-\x20<>\"{}\|^`\\]|{UCHAR})*">"
 %}
 
 
-{IRI} { yylval->build< std::string >( yytext );
-       return(token::IRI);
-       }
+@RULES {
+    std::cout << "LEXER TOKEN: RULES" << std::endl;
+    return(token::RULES);
+}
 
-neg\_ {return(token::NEGATE);}
-~     {return(token::NEGATE);}
+@rules {
+    std::cout << "LEXER TOKEN: RULES" << std::endl;
+    return(token::RULES);
+}
 
-[a-z][a-zA-Z0-9]* {
-                     yylval->build< std::string >( yytext );
-                     return(token::LOWERWORD);
-                     }
+@FACTS {
+    std::cout << "LEXER TOKEN: FACTS" << std::endl;
+    return(token::RULES);
+}
 
-\"([^\"\\\n\r]|\\[^\n\r])*\"   { yylval->build< std::string >( yytext );
-                                 return(token::WORD);};
-[A-Z][a-zA-Z0-9]* {  yylval->build< std::string >( yytext );
-                     return(token::UPPERWORD);
-                     }
-\(         {return(token::LEFTPAR);}
-\)         {return(token::RIGHTPAR);}
-,          {return(token::COMMA);}
-:-         {return(token::ARROW);}
-\n+        {return(token::NEWLINE);}
-[\ \t\v]+  {;}                              /*ignore spaces and tabs*/
-.          {std::cout << "Lexer ERROR. Unrecognized character: " << yytext << std::endl;
-            std::exit(1);
-           }
+@facts {
+    std::cout << "LEXER TOKEN: FACTS" << std::endl;
+    return(token::RULES);
+}
+
+@QUERIES {
+    std::cout << "LEXER TOKEN: QUERIES" << std::endl;
+    return(token::RULES);
+}
+
+@queries {
+    std::cout << "LEXER TOKEN: QUERIES" << std::endl;
+    return(token::RULES);
+}
+
+{IRI} {
+    std::cout << "LEXER IRI: " << yytext << std::endl;
+    yylval->build< std::string >( yytext );
+    return(token::IRI);
+}
+
+{Var} {
+    std::cout << "LEXER Var: " << yytext << std::endl;
+    //by definition, no '?' nor '$' are part of the variable name
+    std::string variable(yytext);
+    yylval->build< std::string >( variable.substr(1,variable.length()) );
+    return(token::VARIABLE);
+}
+
+neg\_ {
+    std::cout << "LEXER TOKEN: NOT" << std::endl;
+    return(token::NEGATE);
+}
+~     {
+    std::cout << "LEXER TOKEN: NOT" << std::endl;
+    return(token::NEGATE);
+}
+
+([a-z]|[A-Z])[a-zA-Z0-9]* {
+    yylval->build< std::string >( yytext );
+    std::cout << "LEXER WORD: " << yytext << std::endl;
+    return(token::WORD);
+}
+
+\"([^\"\\\n\r]|\\[^\n\r])*\"   {
+    yylval->build< std::string >( yytext );
+    std::cout << "LEXER WORD: " << yytext << std::endl;
+    return(token::WORD);
+}
+
+\( {
+    std::cout << "LEXER TOKEN: LEFT PAR" << std::endl;
+    return(token::LEFTPAR);
+}
+
+\) {
+    std::cout << "LEXER TOKEN: RIGHT PAR" << std::endl;
+    return(token::RIGHTPAR);
+}
+
+, {
+    std::cout << "LEXER TOKEN: COMMA" << std::endl;
+    return(token::COMMA);
+}
+
+:- {
+    std::cout << "LEXER TOKEN: ARROW" << std::endl;
+    return(token::ARROW);
+}
+
+\n+ {
+    std::cout << "LEXER TOKEN: NEWLINE" << std::endl;
+    return(token::NEWLINE);
+}
+
+[\ \t\v\r]+  {;}                              /*ignore spaces and tabs*/
+
+. {
+    std::cout << "Lexer ERROR. Unrecognized character: " << yytext << std::endl;
+    std::exit(1);
+}
 
 \%[^\r\n]*(\r\n|\r|\n) { /* # comment */ }
 \%[^\r\n]*             { /* # comment on the last line with no terminating newline */}

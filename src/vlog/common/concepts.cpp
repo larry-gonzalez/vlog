@@ -849,34 +849,64 @@ std::string Program::readFromFile(std::string pathFile, bool rewriteMultihead) {
 //TODO use rewrite Multihead
 void Program::parseRuleFile(std::string pathFile, bool rewriteMultihead) {
     MC::RuleDriver driver;
+    LOG(DEBUGL) << "LARRY parsing 1";
     driver.parse(pathFile);
+    LOG(DEBUGL) << "LARRY parsing 2";
     MC::RuleAST *root = driver.get_root();
-    //root->print();
+    LOG(DEBUGL) << "LARRY parsing 3";
+    root->print();
+    LOG(DEBUGL) << "LARRY parsing 4";
     parseAST(root, rewriteMultihead, NULL, NULL, NULL);
+    LOG(DEBUGL) << "LARRY parsing 5";
 }
 
 void Program::parseAST(MC::RuleAST *root, bool rewriteMultihead, Dictionary *dictVariables, std::vector<Literal> *listOfLiterals, std::vector<VTerm> *terms){
+    //see also: files rulelexer.l and ruleparser.yy TODO: rename those files
     //TODO transform this to integers and use a switch
     std::string type = root->getType();
-    if (type == "LISTOFRULES") {
-        //LOG(DEBUGL) << "L. starting rulelist parsing";
+    LOG(DEBUGL) << "    starting Program::parseAST";
+    LOG(DEBUGL) << "    type: " << type;
+
+    if (type == "LISTOFSECTIONS") {
+        LOG(DEBUGL) << "    starting list of section parsing";
         MC::RuleAST *first = root->getFirst();
-        if (first != NULL) {
-            parseAST(first, rewriteMultihead, dictVariables, listOfLiterals, terms);
-        }
+        assert(first != NULL);
+        parseAST(first, rewriteMultihead, dictVariables, listOfLiterals, terms);
         MC::RuleAST *second = root->getSecond();
         if (second != NULL) {
             parseAST(second, rewriteMultihead, dictVariables, listOfLiterals, terms);
         }
-        //LOG(DEBUGL) << "L. rulelist parsing completed";
-    } else if (type == "RULE") {
-        //LOG(DEBUGL) << "L. starting rule parsing";
+        LOG(DEBUGL) << "    list of section parsing completed";
+    }
+    else if (type == "RULESECTION") {
+        LOG(DEBUGL) << "    starting rule section parsing";
+        MC::RuleAST *first = root->getFirst();
+        if (first != NULL)
+            parseAST(first, rewriteMultihead, dictVariables, listOfLiterals, terms);
+        else
+            LOG(DEBUGL) << "    empty rule set";
+        //second is null
+        LOG(DEBUGL) << "    list of section parsing completed";
+    }
+    else if (type == "LISTOFRULES") {
+        LOG(DEBUGL) << "    starting list of rules parsing";
+        MC::RuleAST *first = root->getFirst();
+        assert(first != NULL);
+        parseAST(first, rewriteMultihead, dictVariables, listOfLiterals, terms);
+        MC::RuleAST *second = root->getSecond();
+        if (second != NULL) {
+            parseAST(second, rewriteMultihead, dictVariables, listOfLiterals, terms);
+        }
+        LOG(DEBUGL) << "    list of rules parsing completed";
+    }
+    else if (type == "RULE") {
+        LOG(DEBUGL) << "    starting rule parsing";
         Dictionary dVariables;
         MC::RuleAST * headAST = root->getFirst();
-        if (headAST ==NULL)
+        if (headAST == NULL)
             throw "Error, headAST can not be null";
         MC::RuleAST * bodyAST = root->getSecond();
-        if (bodyAST ==NULL)
+        if (bodyAST == NULL)
             throw "Error, bodyAST can not be null";
         std::vector<Literal> listOfHeadLiterals;
         std::vector<Literal> listOfBodyLiterals;
@@ -885,10 +915,11 @@ void Program::parseAST(MC::RuleAST *root, bool rewriteMultihead, Dictionary *dic
         //Add the rule
         Rule r = Rule(allrules.size(), listOfHeadLiterals, listOfBodyLiterals);
         addRule(r, rewriteMultihead);
-        //LOG(DEBUGL) <<  "L. rule parsing completed";
-        LOG(DEBUGL) <<  "Adding rule: "<< r.toprettystring(this, this->kb, false);
-    } else if (type == "LISTOFLITERALS") {
-        //LOG(DEBUGL) <<  "L. starting listofliterals parsing";
+        LOG(DEBUGL) <<  "    adding rule: "<< r.toprettystring(this, this->kb, false);
+        LOG(DEBUGL) <<  "    rule parsing completed";
+    }
+    else if (type == "LISTOFLITERALS") {
+        LOG(DEBUGL) <<  "    starting listofliterals parsing";
         MC::RuleAST *firstLiteral = root->getFirst();
         if (firstLiteral != NULL) {
             parseAST(firstLiteral, rewriteMultihead, dictVariables, listOfLiterals, NULL);
@@ -897,9 +928,10 @@ void Program::parseAST(MC::RuleAST *root, bool rewriteMultihead, Dictionary *dic
         if (rest != NULL) {
             parseAST(rest, rewriteMultihead, dictVariables, listOfLiterals, NULL);
         }
-        //LOG(DEBUGL) <<  "L. listofliterals parsing completed";
-    } else if (type == "POSITIVELITERAL") {
-        //LOG(DEBUGL) <<  "L starting positive literal parsing";
+        LOG(DEBUGL) <<  "    listofliterals parsing completed";
+    }
+    else if (type == "POSITIVELITERAL") {
+        LOG(DEBUGL) <<  "L starting positive literal parsing";
         std::string predicate = root->getValue();
         std::vector<VTerm> t;
         MC::RuleAST *listOfTerms = root->getFirst();
@@ -935,9 +967,10 @@ void Program::parseAST(MC::RuleAST *root, bool rewriteMultihead, Dictionary *dic
 
         Literal literal(pred, t1, false);
         listOfLiterals->push_back(literal);
-        //LOG(DEBUGL) <<  "L. positive literal parsing completed";
-    } else if (type == "NEGATEDLITERAL") {
-        //LOG(DEBUGL) <<  "L. starting negative literal parsing";
+        LOG(DEBUGL) <<  "    positive literal parsing completed";
+    }
+    else if (type == "NEGATIVELITERAL") {
+        LOG(DEBUGL) <<  "    starting negative literal parsing";
         std::string predicate = root->getValue();
         std::vector<VTerm> t;
         MC::RuleAST *listOfTerms = root->getFirst();
@@ -973,9 +1006,10 @@ void Program::parseAST(MC::RuleAST *root, bool rewriteMultihead, Dictionary *dic
 
         Literal literal(pred, t1, true);
         listOfLiterals->push_back(literal);
-        //LOG(DEBUGL) <<  "L. negative literal parsing completed";
-    } else if (type == "LISTOFTERMS") {
-        //LOG(DEBUGL) <<  "L starting listofterms parsing";
+        LOG(DEBUGL) <<  "    negative literal parsing completed";
+    }
+    else if (type == "LISTOFTERMS") {
+        LOG(DEBUGL) <<  "L starting listofterms parsing";
         MC::RuleAST *firstTerm = root->getFirst();
         if (firstTerm != NULL) {
             parseAST(firstTerm, rewriteMultihead, dictVariables, listOfLiterals, terms);
@@ -984,15 +1018,16 @@ void Program::parseAST(MC::RuleAST *root, bool rewriteMultihead, Dictionary *dic
         if (rest != NULL) {
             parseAST(rest, rewriteMultihead, dictVariables, listOfLiterals, terms);
         }
-        //LOG(DEBUGL) <<  "L. listofterms parsing completed";
+        LOG(DEBUGL) <<  "    listofterms parsing completed";
     } else if (type == "VARIABLE") {
         parseVariableAST(root, dictVariables, terms);
     } else if (type == "CONSTANT") {
         parseConstantAST(root, terms);
     } else {
-        //LOG(DEBUGL) << "L. ERROR: " << type;
+        LOG(DEBUGL) << "    ERROR: " << type;
         throw "parseAST error";
     }
+    LOG(DEBUGL) << "L: Program::parseAST completed";
 }
 
 void Program::parseVariableAST(MC::RuleAST *root, Dictionary *dictVariables, std::vector<VTerm> *terms){
