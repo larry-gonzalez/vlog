@@ -55,15 +55,21 @@
 %token <std::string> VARIABLE
 %token               LEFTPAR
 %token               RIGHTPAR
+%token               POINT
 %token               COMMA
 %token               ARROW
 %token               NEWLINE
+%token               BASE
+%token               PREFIX
 %token               NEGATE
-%token <std::string> IRI
+%token <std::string> IRIREF
+%token <std::string> PNAME_NS
 
 %type <MC::RuleAST*> list_of_sections
 %type <MC::RuleAST*> section
 %type <MC::RuleAST*> list_of_rules
+%type <MC::RuleAST*> list_of_facts
+%type <MC::RuleAST*> list_of_queries
 %type <MC::RuleAST*> rule
 %type <MC::RuleAST*> head_literals
 %type <MC::RuleAST*> body_literals
@@ -71,54 +77,79 @@
 %type <MC::RuleAST*> negative_literal
 %type <MC::RuleAST*> term
 %type <MC::RuleAST*> list_of_terms
+%type <MC::RuleAST*> ground_term
+%type <MC::RuleAST*> list_of_ground_terms
+%type <MC::RuleAST*> fact
 
 
 %locations
 
 %%
-list_of_sections : section                          { $$ = new MC::RuleAST("LISTOFSECTIONS",    "", $1,   NULL);  driver.set_root($$);}
-                 | section list_of_sections         { $$ = new MC::RuleAST("LISTOFSECTIONS",    "", $1,   $2  );  driver.set_root($$);};
+list_of_sections : section                  { $$ = new MC::RuleAST("LISTOFSECTIONS",    "", "", $1,   NULL);  driver.set_root($$);}
+                 | section list_of_sections { $$ = new MC::RuleAST("LISTOFSECTIONS",    "", "", $1,   $2  );  driver.set_root($$);};
 
-section : RULES   NEWLINE list_of_rules             { $$ = new MC::RuleAST("RULESECTION",       "", $3,   NULL);}
-        | FACTS   NEWLINE list_of_facts             { $$ = NULL;}
+section : BASE IRIREF POINT NEWLINE                 { $$ = new MC::RuleAST("BASE",       $2,     "", NULL,   NULL);}
+        | PREFIX PNAME_NS IRIREF POINT NEWLINE      { $$ = new MC::RuleAST("PREFIX",     $2,    $3,  NULL,   NULL);}
+        | RULES   NEWLINE list_of_rules             { $$ = new MC::RuleAST("RULESECTION",       "", "", $3,   NULL);}
+        | FACTS   NEWLINE list_of_facts             { $$ = new MC::RuleAST("FACTSECTION",       "", "", $3,   NULL);}
         | QUERIES NEWLINE list_of_queries           { $$ = NULL;};
 
-list_of_rules : rule                                { $$ = new MC::RuleAST("LISTOFRULES",    "", $1,   NULL); }
-              | rule list_of_rules                  { $$ = new MC::RuleAST("LISTOFRULES",    "", $1,   $2  ); }
+/* RULES */
+list_of_rules : rule                                { $$ = new MC::RuleAST("LISTOFRULES",    "",  "", $1,   NULL); }
+              | rule list_of_rules                  { $$ = new MC::RuleAST("LISTOFRULES",    "", "", $1,   $2  ); }
               | %empty                              { $$ = NULL; };
 
-rule : head_literals ARROW body_literals NEWLINE    { $$ = new MC::RuleAST("RULE",        "", $1,   $3  );};
+rule : head_literals ARROW body_literals POINT NEWLINE { $$ = new MC::RuleAST("RULE",        "",  "", $1,   $3  );}
+     | head_literals ARROW body_literals NEWLINE       { std::cerr << "rule error: missing point."; exit(1);}
 
  /* list of positive literals*/
-head_literals : positive_literal                     { $$ = new MC::RuleAST("LISTOFLITERALS", "", $1,   NULL); }
-              | positive_literal COMMA head_literals { $$ = new MC::RuleAST("LISTOFLITERALS", "", $1,   $3  ); };
+head_literals : positive_literal                     { $$ = new MC::RuleAST("LISTOFLITERALS", "", "", $1,   NULL); }
+              | positive_literal COMMA head_literals { $$ = new MC::RuleAST("LISTOFLITERALS", "", "", $1,   $3  ); };
 
  /* list of positive or negative literals*/
-body_literals : positive_literal                     { $$ = new MC::RuleAST("LISTOFLITERALS", "", $1,   NULL); }
-              | negative_literal                     { $$ = new MC::RuleAST("LISTOFLITERALS", "", $1,   NULL); }
-              | positive_literal COMMA body_literals { $$ = new MC::RuleAST("LISTOFLITERALS", "", $1,   $3  ); }
-              | negative_literal COMMA body_literals { $$ = new MC::RuleAST("LISTOFLITERALS", "", $1,   $3  ); };
+body_literals : positive_literal                     { $$ = new MC::RuleAST("LISTOFLITERALS", "", "", $1,   NULL); }
+              | negative_literal                     { $$ = new MC::RuleAST("LISTOFLITERALS", "", "", $1,   NULL); }
+              | positive_literal COMMA body_literals { $$ = new MC::RuleAST("LISTOFLITERALS", "", "", $1,   $3  ); }
+              | negative_literal COMMA body_literals { $$ = new MC::RuleAST("LISTOFLITERALS", "", "", $1,   $3  ); };
 
-positive_literal : WORD LEFTPAR list_of_terms RIGHTPAR        { $$ = new MC::RuleAST("POSITIVELITERAL",     $1, $3,   NULL); }
-                 | error                                      { yyerrok;  print_error_and_exit("Not valid positive literal."); };
+positive_literal : WORD LEFTPAR list_of_terms RIGHTPAR      { $$ = new MC::RuleAST("POSITIVELITERAL",     $1, "", $3,   NULL); } 
+                 | IRIREF LEFTPAR list_of_terms RIGHTPAR    { $$ = new MC::RuleAST("POSITIVELITERAL",     $1, "", $3,   NULL); }
+                 | error                                    { yyerrok;  print_error_and_exit("Not valid positive literal."); };
 
-negative_literal : NEGATE WORD LEFTPAR list_of_terms RIGHTPAR { $$ = new MC::RuleAST("NEGATIVELITERAL",     $2, $4,   NULL); }
-                 | error                                      { yyerrok;  print_error_and_exit("Not valid negative literal."); };
+negative_literal : NEGATE WORD LEFTPAR list_of_terms RIGHTPAR   { $$ = new MC::RuleAST("NEGATIVELITERAL",     $2, "", $4,   NULL); }
+                 | NEGATE IRIREF LEFTPAR list_of_terms RIGHTPAR { $$ = new MC::RuleAST("NEGATIVELITERAL",     $2, "", $4,   NULL); }
+                 | error                                        { yyerrok;  print_error_and_exit("Not valid negative literal."); };
 
-list_of_terms : term                                { $$ = new MC::RuleAST("LISTOFTERMS",    "", $1, NULL); }
-              | term COMMA list_of_terms            { $$ = new MC::RuleAST("LISTOFTERMS",    "", $1, $3); }
-              | error                               { yyerrok;  print_error_and_exit("Not valid list of terms."); };
+list_of_terms : term                                 { $$ = new MC::RuleAST("LISTOFTERMS",    "", "", $1, NULL); }
+              | term COMMA list_of_terms             { $$ = new MC::RuleAST("LISTOFTERMS",    "", "", $1, $3); }
+              | error                                { yyerrok;  print_error_and_exit("Not valid list of terms."); };
 
-term : WORD                                                  { $$ = new MC::RuleAST("VARIABLE",    $1, NULL, NULL); }
-     | IRI                                                   { $$ = new MC::RuleAST("CONSTANT",    $1, NULL, NULL); }
-     | VARIABLE                                              { $$ = new MC::RuleAST("VARIABLE",    $1, NULL, NULL); };
+term : WORD                                          { $$ = new MC::RuleAST("WORD",        $1, "", NULL, NULL); }
+     | IRIREF                                        { $$ = new MC::RuleAST("IRIREF",      $1, "", NULL, NULL); }
+     | VARIABLE                                      { $$ = new MC::RuleAST("VARIABLE",    $1, "", NULL, NULL); }
+     | error                                         { yyerrok;  print_error_and_exit("Term is not valid"); };
 
-list_of_facts : fact                                { }
-              | fact list_of_facts                  { }
-              | %empty                              { };
+/* FACTS */
+list_of_facts : fact                                { $$ = new MC::RuleAST("LISTOFFACTS", "", "", $1, NULL); }
+              | fact list_of_facts                  { $$ = new MC::RuleAST("LISTOFFACTS", "", "", $1, $2); }
+              | %empty                              { $$ = NULL; };
 
-fact : positive_literal { };
+fact : WORD   LEFTPAR list_of_ground_terms RIGHTPAR POINT NEWLINE   { $$ = new MC::RuleAST("FACT",     $1, "", $3,   NULL); } 
+     | IRIREF LEFTPAR list_of_ground_terms RIGHTPAR POINT NEWLINE   { $$ = new MC::RuleAST("FACT",     $1, "", $3,   NULL); }
+     | error                                           { yyerrok;  print_error_and_exit("Not valid fact."); };
 
+
+list_of_ground_terms : ground_term                             { $$ = new MC::RuleAST("LISTOFTERMS",    "", "", $1, NULL); }
+                     | ground_term COMMA list_of_ground_terms  { $$ = new MC::RuleAST("LISTOFTERMS",    "", "", $1, $3); }
+                     | error                                   { yyerrok;  print_error_and_exit("Not valid list of ground terms."); };
+
+ground_term : WORD                                           { $$ = new MC::RuleAST("WORD",        $1, "", NULL, NULL); }
+            | IRIREF                                         { $$ = new MC::RuleAST("IRIREF",      $1, "", NULL, NULL); }
+            | error                                          { yyerrok;  print_error_and_exit("Not valid ground term."); };
+
+
+
+ /* QUERIES */
 list_of_queries : query                             { }
                 | query list_of_queries             { }
                 | %empty                            { };

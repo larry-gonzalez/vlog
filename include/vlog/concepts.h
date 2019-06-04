@@ -466,6 +466,9 @@ class Program {
         std::vector<std::vector<uint32_t>> rules;
         std::vector<Rule> allrules;
 
+        std::string base;
+        std::unordered_map<std::string, std::string> prefixes;
+
         Dictionary dictPredicates;
         std::unordered_map<PredId_t, uint8_t> cardPredicates;
 
@@ -487,7 +490,10 @@ class Program {
             kb = e;
         }
 
-	uint64_t getMaxPredicateId() {
+        std::string getBase();
+        std::string getFullPrefix(std::string prefix);
+
+        uint64_t getMaxPredicateId() {
 	    return dictPredicates.getCounter();
 	}
 
@@ -501,7 +507,10 @@ class Program {
 
         VLIBEXP std::string readFromString(std::string rules, bool rewriteMultihead = false);
 
+        //L.
         VLIBEXP void parseRuleFile(std::string pathFile, bool rewriteMultihead = false);
+        VLIBEXP void parseBase(MC::RuleAST *root);
+        VLIBEXP void parsePrefix(MC::RuleAST *root);
         VLIBEXP void parseAST(MC::RuleAST *root, bool rewriteMultihead, Dictionary *dictVariables, std::vector<Literal> *listOfLiterals, std::vector<VTerm> *terms);
         VLIBEXP void parseVariableAST(MC::RuleAST *root, Dictionary *dictVariables, std::vector<VTerm> *terms);
         VLIBEXP void parseConstantAST(MC::RuleAST *root, std::vector<VTerm> *terms);

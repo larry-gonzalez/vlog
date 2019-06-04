@@ -14,24 +14,28 @@ namespace MC{
     class RuleAST{
         public:
             RuleAST(std::string type="",
-                std::string value="",
-                RuleAST *first=NULL,
-                RuleAST *second=NULL):
+                std::string firstValue="",
+                std::string secondValue="",
+                RuleAST *firstAST=NULL,
+                RuleAST *secondAST=NULL):
                     type(type),
-                    value(value),
-                    first(first),
-                    second(second){}
+                    firstValue(firstValue),
+                    secondValue(secondValue),
+                    firstAST(firstAST),
+                    secondAST(secondAST){}
             void print(int sep=0);
             ~RuleAST();
             std::string getType();
-            std::string getValue();
-            MC::RuleAST *getFirst();
-            MC::RuleAST *getSecond();
+            std::string getFirstValue();
+            std::string getSecondValue();
+            MC::RuleAST *getFirstAST();
+            MC::RuleAST *getSecondAST();
         private:
             std::string type;
-            std::string value;
-            RuleAST *first;
-            RuleAST *second;
+            std::string firstValue;
+            std::string secondValue;
+            RuleAST *firstAST;
+            RuleAST *secondAST;
             void print_indented(std::string to_indent, int spaces);
     };
 

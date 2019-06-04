@@ -60,15 +60,16 @@ void MC::RuleDriver::parse_helper( std::istream &stream ) {
 
 void MC::RuleAST::print(int sep/*=0*/){
     print_indented("type: "  + type, sep);
-    print_indented("value: " + value, sep);
-    print_indented("first: ", sep);
-    if (first != NULL)
-        first->print(sep+4);
+    print_indented("first value: " + firstValue, sep);
+    print_indented("second value: " + secondValue, sep);
+    print_indented("first AST: ", sep);
+    if (firstAST != NULL)
+        firstAST->print(sep+4);
     else
         std::cout << std::endl;
-    print_indented("second: ", sep);
-    if (second != NULL)
-        second->print(sep+4);
+    print_indented("second AST: ", sep);
+    if (secondAST != NULL)
+        secondAST->print(sep+4);
     else
         std::cout << std::endl;
 }
@@ -84,21 +85,28 @@ void MC::RuleAST::print_indented(std::string to_indent, int spaces) {
 
 
 MC::RuleAST::~RuleAST() {
-    if (first !=NULL)
-        delete(first);
-    if (second !=NULL)
-        delete(second);
+    if (firstAST !=NULL)
+        delete(firstAST);
+    if (secondAST !=NULL)
+        delete(secondAST);
 }
 
 std::string MC::RuleAST::getType(){
     return type;
 }
-std::string MC::RuleAST::getValue(){
-    return value;
+
+std::string MC::RuleAST::getFirstValue(){
+    return firstValue;
 }
-MC::RuleAST *MC::RuleAST::getFirst(){
-    return first;
+
+std::string MC::RuleAST::getSecondValue(){
+    return secondValue;
 }
-MC::RuleAST *MC::RuleAST::getSecond(){
-    return second;
+
+MC::RuleAST *MC::RuleAST::getFirstAST(){
+    return firstAST;
+}
+
+MC::RuleAST *MC::RuleAST::getSecondAST(){
+    return secondAST;
 }

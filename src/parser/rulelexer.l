@@ -34,7 +34,7 @@ using token = MC::RuleParser::token;
 
 HEX [0-9A-Fa-f]
 UCHAR "\\u"{HEX}{HEX}{HEX}{HEX}|"\\U"{HEX}{HEX}{HEX}{HEX}{HEX}{HEX}{HEX}{HEX}
-IRI "<"([^\u00-\u20<>\"{}\|^`\\]|{UCHAR})*">"
+IRIREF "<"([^\x00-\x20<>\"{}\|^`\\]|{UCHAR})*">"
 
 Var {VAR1}|{VAR2}
 VAR1 "?"{VARNAME}
@@ -43,12 +43,35 @@ VARNAME ({PN_CHARS_U}|[0-9])({PN_CHARS_U}|[0-9]|\u00B7|['\u0300'-'\u036F']|['\u2
 PN_CHARS_U {PN_CHARS_BASE}|"_" 
 PN_CHARS_BASE [A-Z]|[a-z]|['\u00C0'-'\u00D6']|['\u00D8'-'\u00F6']|['\u00F8'-'\u02FF']|['\u0370'-'\u037D']|['\u037F'-'\u1FFF']|['\u200C'-'\u200D']|['\u2070'-'\u218F']|['\u2C00'-'\u2FEF']|['\u3001'-'\uD7FF']|['\uF900'-'\uFDCF']|['\uFDF0'-'\uFFFD']|['\u10000'-'\uEFFFF']
 
+PN_CHARS {PN_CHARS_U}|'-'|[0-9]|'\u00B7'|['\u0300'-'\u036F']|['\u203F'-'\u2040']
+PN_PREFIX {PN_CHARS_BASE}(({PN_CHARS}|'.')*{PN_CHARS})?
+PNAME_NS {PN_PREFIX}?":"
+
+
 %%
 
 %{          /** Code executed at the beginning of yylex **/
             yylval = lval;
 %}
 
+@base {
+    std::cout << "LEXER TOKEN: BASE" << std::endl;
+    return(token::BASE);
+}
+@BASE {
+    std::cout << "LEXER TOKEN: BASE" << std::endl;
+    return(token::BASE);
+}
+
+@prefix {
+    std::cout << "LEXER TOKEN: PREFIX" << std::endl;
+    return(token::PREFIX);
+}
+
+@PREFIX {
+    std::cout << "LEXER TOKEN: PREFIX" << std::endl;
+    return(token::PREFIX);
+}
 
 @RULES {
     std::cout << "LEXER TOKEN: RULES" << std::endl;
@@ -62,28 +85,34 @@ PN_CHARS_BASE [A-Z]|[a-z]|['\u00C0'-'\u00D6']|['\u00D8'-'\u00F6']|['\u00F8'-'\u0
 
 @FACTS {
     std::cout << "LEXER TOKEN: FACTS" << std::endl;
-    return(token::RULES);
+    return(token::FACTS);
 }
 
 @facts {
     std::cout << "LEXER TOKEN: FACTS" << std::endl;
-    return(token::RULES);
+    return(token::FACTS);
 }
 
 @QUERIES {
     std::cout << "LEXER TOKEN: QUERIES" << std::endl;
-    return(token::RULES);
+    return(token::QUERIES);
 }
 
 @queries {
     std::cout << "LEXER TOKEN: QUERIES" << std::endl;
-    return(token::RULES);
+    return(token::QUERIES);
 }
 
-{IRI} {
-    std::cout << "LEXER IRI: " << yytext << std::endl;
+{PNAME_NS} {
+    std::cout << "LEXER PNAME_NS: " << yytext << std::endl;
     yylval->build< std::string >( yytext );
-    return(token::IRI);
+    return(token::PNAME_NS);
+}
+
+{IRIREF} {
+    std::cout << "LEXER IRIREF: " << yytext << std::endl;
+    yylval->build< std::string >( yytext );
+    return(token::IRIREF);
 }
 
 {Var} {
@@ -125,10 +154,16 @@ neg\_ {
     return(token::RIGHTPAR);
 }
 
+\. {
+    std::cout << "LEXER TOKEN: POINT" << std::endl;
+    return(token::POINT);
+}
+
 , {
     std::cout << "LEXER TOKEN: COMMA" << std::endl;
     return(token::COMMA);
 }
+
 
 :- {
     std::cout << "LEXER TOKEN: ARROW" << std::endl;
