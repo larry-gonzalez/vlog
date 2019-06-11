@@ -544,12 +544,19 @@ void launchFullMat(int argc,
         std::string pathRules) {
     //Load a program with all the rules
     Program p(&db);
-    //std::string s = p.readFromFile(pathRules,vm["rewriteMultihead"].as<bool>());
-    //if (s != "") {
-    //    LOG(ERRORL) << s;
-    //    return;
-    //}
-    p.parseRuleFile(pathRules); //L.'s method
+
+    if (vm["useParserGenerator"].as<bool>()){
+        //use parser generator
+        p.parseRuleFile(pathRules);
+    }    
+    else {
+        //use previous method to parse rules
+        std::string s = p.readFromFile(pathRules,vm["rewriteMultihead"].as<bool>());
+        if (s != "") {
+            LOG(ERRORL) << s;
+            return;
+        }    
+    }    
 
     //Existential check
     if (p.areExistentialRules()) {
