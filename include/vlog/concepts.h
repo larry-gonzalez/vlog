@@ -491,6 +491,7 @@ class Program {
         }
 
         std::string getBase();
+        void setBase(std::string newBase);
         std::string getFullPrefix(std::string prefix);
 
         uint64_t getMaxPredicateId() {
@@ -507,11 +508,79 @@ class Program {
 
         VLIBEXP std::string readFromString(std::string rules, bool rewriteMultihead = false);
 
-        //L.
         VLIBEXP void parseRuleFile(std::string pathFile, bool rewriteMultihead = false);
         VLIBEXP void parseBase(MC::RuleAST *root);
         VLIBEXP void parsePrefix(MC::RuleAST *root);
-        VLIBEXP void parseAST(MC::RuleAST *root, bool rewriteMultihead, Dictionary *dictVariables, std::vector<Literal> *listOfLiterals, std::vector<VTerm> *terms);
+        VLIBEXP void interpretateAST(MC::RuleAST *root,
+                bool rewriteMultihead,
+                Dictionary *dictVariables,
+                std::vector<Literal> *listOfLiterals,
+                std::vector<VTerm> *terms);
+        VLIBEXP void generateBase(MC::RuleAST *root);
+        VLIBEXP void generatePrefix(MC::RuleAST *root);
+        VLIBEXP void generateListOfSections(MC::RuleAST *root,
+                bool rewriteMultihead,
+                Dictionary *dictVariables,
+                std::vector<Literal> *listOfLiterals,
+                std::vector<VTerm> *terms);
+        VLIBEXP void generateRuleSection(MC::RuleAST *root,
+                bool rewriteMultihead,
+                Dictionary *dictVariables,
+                std::vector<Literal> *listOfLiterals,
+                std::vector<VTerm> *terms);
+        VLIBEXP void generateListOfRules(MC::RuleAST *root,
+                bool rewriteMultihead,
+                Dictionary *dictVariables,
+                std::vector<Literal> *listOfLiterals,
+                std::vector<VTerm> *terms);
+        VLIBEXP void generateRule(MC::RuleAST *root,
+                bool rewriteMultihead,
+                Dictionary *dictVariables,
+                std::vector<Literal> *listOfLiterals,
+                std::vector<VTerm> *terms);
+        VLIBEXP void generateListOfLiterals(MC::RuleAST *root,
+                bool rewriteMultihead,
+                Dictionary *dictVariables,
+                std::vector<Literal> *listOfLiterals,
+                std::vector<VTerm> *terms);
+        VLIBEXP void generateFact(MC::RuleAST *root,
+                bool rewriteMultihead,
+                Dictionary *dictVariables,
+                std::vector<Literal> *listOfLiterals,
+                std::vector<VTerm> *terms);
+        VLIBEXP void generatePositiveLiteral(MC::RuleAST *root,
+                bool rewriteMultihead,
+                Dictionary *dictVariables,
+                std::vector<Literal> *listOfLiterals,
+                std::vector<VTerm> *terms);
+        VLIBEXP void generateNegativeLiteral(MC::RuleAST *root,
+                bool rewriteMultihead,
+                Dictionary *dictVariables,
+                std::vector<Literal> *listOfLiterals,
+                std::vector<VTerm> *terms);
+        VLIBEXP void generateListOfTerms(MC::RuleAST *root,
+                bool rewriteMultihead,
+                Dictionary *dictVariables,
+                std::vector<Literal> *listOfLiterals,
+                std::vector<VTerm> *terms);
+        VLIBEXP void generateTerm(MC::RuleAST *root,
+                bool rewriteMultihead,
+                Dictionary *dictVariables,
+                std::vector<Literal> *listOfLiterals,
+                std::vector<VTerm> *terms);
+        VLIBEXP void generateFactSection(MC::RuleAST *root,
+                bool rewriteMultihead,
+                Dictionary *dictVariables,
+                std::vector<Literal> *listOfLiterals,
+                std::vector<VTerm> *terms);
+        VLIBEXP void generateListOfFacts(MC::RuleAST *root,
+                bool rewriteMultihead,
+                Dictionary *dictVariables,
+                std::vector<Literal> *listOfLiterals,
+                std::vector<VTerm> *terms);
+        VLIBEXP std::string generateRDFLiteral(MC::RuleAST *root);
+        VLIBEXP std::string generateIRI(MC::RuleAST *root);
+
         VLIBEXP void parseVariableAST(MC::RuleAST *root, Dictionary *dictVariables, std::vector<VTerm> *terms);
         VLIBEXP void parseConstantAST(MC::RuleAST *root, std::vector<VTerm> *terms);
         PredId_t getPredicateID(std::string &p, const uint8_t card);

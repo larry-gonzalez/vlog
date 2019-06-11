@@ -3,6 +3,15 @@
 #include <string>
 #include <iostream>
 
+
+std::string deletePrefixAndSufix(char *input, int prefixLength, int sufixLength) {
+    std::string str = std::string(input);
+    return str.substr(prefixLength, str.length()-prefixLength-sufixLength);
+}
+std::string deletePrefixAndSufix(std::string input, int prefixLength, int sufixLength) {
+    return input.substr(prefixLength, input.length()-prefixLength-sufixLength);
+}
+
 /* Implementation of yyFlexScanner */
 #include <parser/rulescanner.h>
 #undef  YY_DECL
@@ -32,9 +41,8 @@ using token = MC::RuleParser::token;
  /* Tokens from Turtle 2013 spec - lex-ifyed to remove unicode ranges */
  /* See https://www.w3.org/TR/rdf-sparql-query/ */
 
-HEX [0-9A-Fa-f]
-UCHAR "\\u"{HEX}{HEX}{HEX}{HEX}|"\\U"{HEX}{HEX}{HEX}{HEX}{HEX}{HEX}{HEX}{HEX}
-IRIREF "<"([^\x00-\x20<>\"{}\|^`\\]|{UCHAR})*">"
+UCHAR \\u{HEX}{HEX}{HEX}{HEX}|\\U{HEX}{HEX}{HEX}{HEX}{HEX}{HEX}{HEX}{HEX}
+IRIREF <([^\x00-\x20<>\"{}\|^`\\]|{UCHAR})*>
 
 Var {VAR1}|{VAR2}
 VAR1 "?"{VARNAME}
@@ -45,7 +53,44 @@ PN_CHARS_BASE [A-Z]|[a-z]|['\u00C0'-'\u00D6']|['\u00D8'-'\u00F6']|['\u00F8'-'\u0
 
 PN_CHARS {PN_CHARS_U}|'-'|[0-9]|'\u00B7'|['\u0300'-'\u036F']|['\u203F'-'\u2040']
 PN_PREFIX {PN_CHARS_BASE}(({PN_CHARS}|'.')*{PN_CHARS})?
-PNAME_NS {PN_PREFIX}?":"
+PNAME_NS {PN_PREFIX}?:
+
+LANGTAG @[a-zA-Z]+(-[a-zA-Z0-9]+)*
+
+
+ /*[17 turtle]*/
+ /* String {STRING_LITERAL_QUOTE}|{STRING_LITERAL_SINGLE_QUOTE}|{STRING_LITERAL_LONG_SINGLE_QUOTE}|{STRING_LITERAL_LONG_QUOTE} */
+ /*[135s turtle]*/
+ /*iri {IRIREF}|{PrefixedName} */
+ /*[22 turtle]*/
+STRING_LITERAL_QUOTE \"([^\x22\x5C\xA\xD]|{ECHAR}|{UCHAR})*\"
+ /*[23 turtle]*/
+STRING_LITERAL_SINGLE_QUOTE \'([^\x27\x5C\xA\xD]|{ECHAR}|{UCHAR})*\'
+ /*[24 turtle]*/
+STRING_LITERAL_LONG_SINGLE_QUOTE '''((\'|\'\')?([^\'\\]|{ECHAR}|{UCHAR}))*'''
+ /*[25 turtle]*/
+STRING_LITERAL_LONG_QUOTE \"\"\"((\"|\"\")?([^\"\\]|{ECHAR}|{UCHAR}))*\"\"\"
+
+ /*[159s turtle]*/
+ECHAR \\[tbnrf\"'\\]
+ /*[136s turtle]*/
+ /*PrefixedName {PNAME_LN}|{PNAME_NS} */
+
+ /*[140s turtle]*/
+PNAME_LN {PNAME_NS}{PN_LOCAL}
+
+ /*[168s turtle]*/
+PN_LOCAL ({PN_CHARS_U}|:|[0-9]|{PLX})(({PN_CHARS}|\.|:|{PLX})*({PN_CHARS}|:|{PLX}))?
+ /*[169s turtle]*/
+PLX {PERCENT}|{PN_LOCAL_ESC}
+ /*[170s turtle]*/
+PERCENT %{HEX}{HEX}
+ /*[171s turtle]*/
+HEX [0-9]|[A-F]|[a-f]
+ /*[172s turtle]*/
+PN_LOCAL_ESC \\(_|~|.|-|!|$|&|'|\(|\)|\*|\+|,|;|=|\/|\?|#|@|%)
+
+PREDNAME [a-zA-Z][a-zA-Z0-9]*
 
 
 %%
@@ -58,6 +103,7 @@ PNAME_NS {PN_PREFIX}?":"
     std::cout << "LEXER TOKEN: BASE" << std::endl;
     return(token::BASE);
 }
+
 @BASE {
     std::cout << "LEXER TOKEN: BASE" << std::endl;
     return(token::BASE);
@@ -103,45 +149,100 @@ PNAME_NS {PN_PREFIX}?":"
     return(token::QUERIES);
 }
 
-{PNAME_NS} {
-    std::cout << "LEXER PNAME_NS: " << yytext << std::endl;
-    yylval->build< std::string >( yytext );
-    return(token::PNAME_NS);
+\'true\' {
+    std::cout << "LEXER TOKEN: TRUE" << std::endl;
+    return(token::TRUE);
+}
+
+\'false\' {
+    std::cout << "LEXER TOKEN: TRUE" << std::endl;
+    return(token::FALSE);
+}
+
+{STRING_LITERAL_LONG_QUOTE} {
+    std::string str(yytext);
+    std::cout << "LEXER TOKEN: STRING_LITERAL_LONG_QUOTE " << str << std::endl;
+    str = deletePrefixAndSufix(str,3,3);
+    std::cout << "LEXER TOKEN: STRING_LITERAL_LONG_QUOTE " << str << std::endl;
+    yylval->build(str);
+    return(token::STRING);
+}
+
+{STRING_LITERAL_LONG_SINGLE_QUOTE} {
+    std::string str(yytext);
+    std::cout << "LEXER TOKEN: STRING_LITERAL_LONG_SINGLE_QUOTE " << str << std::endl;
+    str = deletePrefixAndSufix(str,3,3);
+    std::cout << "LEXER TOKEN: STRING_LITERAL_LONG_SINGLE_QUOTE " << str << std::endl;
+    yylval->build(str);
+    return(token::STRING);
+}
+
+{STRING_LITERAL_QUOTE} {
+    std::string str(yytext);
+    std::cout << "LEXER TOKEN: STRING_LITERAL_QUOTE " << str << std::endl;
+    str = deletePrefixAndSufix(str,1,1);
+    std::cout << "LEXER TOKEN: STRING_LITERAL_QUOTE " << str << std::endl;
+    yylval->build(str);
+    return(token::STRING);
+}
+
+{STRING_LITERAL_SINGLE_QUOTE} {
+    std::string str(yytext);
+    std::cout << "LEXER TOKEN: STRING_LITERAL_SINGLE_QUOTE " << str << std::endl;
+    str = deletePrefixAndSufix(str,1,1);
+    std::cout << "LEXER TOKEN: STRING_LITERAL_SINGLE_QUOTE " << str << std::endl;
+    yylval->build(str);
+    return(token::STRING);
 }
 
 {IRIREF} {
-    std::cout << "LEXER IRIREF: " << yytext << std::endl;
-    yylval->build< std::string >( yytext );
+    std::string str(yytext);
+    std::cout << "LEXER IRIREF: " << str << std::endl;
+    yylval->build(str);
     return(token::IRIREF);
 }
 
+{PNAME_LN} {
+    std::string str(yytext);
+    std::cout << "LEXER PNAME_LS: " << str << std::endl;
+    yylval->build(str);
+    return(token::PNAME_LN);
+}
+
+{PNAME_NS} {
+    std::string str(yytext);
+    std::cout << "LEXER PNAME_NS: " << str << std::endl;
+    yylval->build(str);
+    return(token::PNAME_NS);
+}
+
+
+{LANGTAG} {
+    std::string str(yytext);
+    std::cout << "LEXER LANGTAG: " << str << std::endl;
+    yylval->build(str);
+    return(token::LANGTAG);
+}
+
+{PREDNAME} {
+    std::string str(yytext);
+    std::cout << "LEXER PREDNAME: " << str << std::endl;
+    yylval->build(str);
+    return(token::PREDNAME);
+}
+
 {Var} {
-    std::cout << "LEXER Var: " << yytext << std::endl;
     //by definition, no '?' nor '$' are part of the variable name
-    std::string variable(yytext);
-    yylval->build< std::string >( variable.substr(1,variable.length()) );
+    std::string str(yytext);
+    str = deletePrefixAndSufix(str,1,0);
+    std::cout << "LEXER VARIABLE: " << str << std::endl;
+    yylval->build(str);
     return(token::VARIABLE);
 }
 
-neg\_ {
+~ {
     std::cout << "LEXER TOKEN: NOT" << std::endl;
     return(token::NEGATE);
-}
-~     {
-    std::cout << "LEXER TOKEN: NOT" << std::endl;
-    return(token::NEGATE);
-}
-
-([a-z]|[A-Z])[a-zA-Z0-9]* {
-    yylval->build< std::string >( yytext );
-    std::cout << "LEXER WORD: " << yytext << std::endl;
-    return(token::WORD);
-}
-
-\"([^\"\\\n\r]|\\[^\n\r])*\"   {
-    yylval->build< std::string >( yytext );
-    std::cout << "LEXER WORD: " << yytext << std::endl;
-    return(token::WORD);
 }
 
 \( {
@@ -164,10 +265,14 @@ neg\_ {
     return(token::COMMA);
 }
 
-
 :- {
     std::cout << "LEXER TOKEN: ARROW" << std::endl;
     return(token::ARROW);
+}
+
+\^\^ {
+    std::cout << "LEXER TOKEN: HATHAT" << std::endl;
+    return(token::HATHAT);
 }
 
 \n+ {

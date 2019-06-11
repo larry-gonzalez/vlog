@@ -11,6 +11,7 @@
 #include <stdlib.h>
 #include <fstream>
 
+
 using namespace std;
 
 bool Literal::hasRepeatedVars() const {
@@ -807,8 +808,7 @@ const std::vector<uint32_t> &Program::getRulesIDsByPredicate(PredId_t predid) co
 
 
 
-Program::Program(EDBLayer *kb) : kb(kb),
-    base("<http://example.org/>"),
+Program::Program(EDBLayer *kb) : kb(kb), base("http://example.org/"),
     dictPredicates(kb->getPredDictionary()),
     cardPredicates(kb->getPredicateCardUnorderedMap()) {
     }
@@ -817,10 +817,415 @@ std::string Program::getBase(){
     return base;
 }
 
+void Program::setBase(std::string newBase) {
+    base = newBase;
+}
+
 std::string Program::getFullPrefix(std::string prefix) {
     if (prefixes.find(prefix) == prefixes.end())
         throw ("prefix not found: " + prefix);
     return prefixes.find(prefix)->second;
+}
+
+void Program::parseRuleFile(std::string pathFile, bool rewriteMultihead) {
+    LOG(TRACEL) << "starting " << typeid(this).name()<<"::"<<__func__;
+    MC::RuleDriver driver;
+    driver.parse(pathFile);
+    MC::RuleAST *root = driver.get_root();
+    //root->print();
+    interpretateAST(root, rewriteMultihead, NULL, NULL, NULL);
+    LOG(TRACEL) << typeid(this).name()<<"::"<<__func__ << "completed";
+}
+
+void  Program::interpretateAST(MC::RuleAST *root,
+        bool rewriteMultihead,
+        Dictionary *dictVariables,
+        std::vector<Literal> *listOfLiterals,
+        std::vector<VTerm> *terms){
+    //see also: files rulelexer.l and ruleparser.yy TODO: rename those files
+    //TODO transform this to integers and use a switch
+    std::string type = root->getType();
+    LOG(TRACEL) << "    starting " << typeid(this).name()<<"::"<<__func__;
+    LOG(DEBUGL) << "    type: " << type;
+
+    if (type == "LISTOFSECTIONS") {
+        generateListOfSections(root, rewriteMultihead, dictVariables, listOfLiterals, terms);
+    }
+    else if (type == "BASEDEFINITION"){
+        generateBase(root);
+    }
+    else if (type == "PREFIXDEFINITION"){
+        generatePrefix(root);
+    }
+    else if (type == "RULESECTION") {
+        generateRuleSection(root, rewriteMultihead, dictVariables, listOfLiterals, terms);
+    }
+    else if (type == "FACTSECTION") {
+        generateFactSection(root, rewriteMultihead, dictVariables, listOfLiterals, terms);
+    }
+    else if (type == "LISTOFRULES") {
+        generateListOfRules(root, rewriteMultihead, dictVariables, listOfLiterals, terms);
+    }
+    else if (type == "LISTOFFACTS") {
+        generateListOfFacts(root, rewriteMultihead, dictVariables, listOfLiterals, terms);
+    }
+    else if (type == "RULE") {
+        generateRule(root, rewriteMultihead, dictVariables, listOfLiterals, terms);
+    }
+    else if (type == "FACT") {
+        generateFact(root, rewriteMultihead, dictVariables, listOfLiterals, terms);
+    }
+    else if (type == "LISTOFLITERALS") {
+        generateListOfLiterals(root, rewriteMultihead, dictVariables, listOfLiterals, terms);
+    }
+    else if (type == "POSITIVELITERAL") {
+        generatePositiveLiteral(root, rewriteMultihead, dictVariables, listOfLiterals, terms);
+    }
+    else if (type == "NEGATIVELITERAL") {
+        generateNegativeLiteral(root, rewriteMultihead, dictVariables, listOfLiterals, terms);
+    }
+    else if (type == "LISTOFTERMS") {
+        generateListOfTerms(root, rewriteMultihead, dictVariables, listOfLiterals, terms);
+    }
+    else if (type == "TERM") {
+        generateTerm(root, rewriteMultihead, dictVariables, listOfLiterals, terms);
+    }
+    else {
+        LOG(DEBUGL) << "    ERROR: " << type;
+        throw "interpretateAST error";
+    }
+    LOG(TRACEL) << "    " << typeid(this).name()<<"::"<<__func__ << "completed";
+}
+
+
+void Program::generateBase(MC::RuleAST *root) {
+    LOG(TRACEL) << "    starting " << typeid(this).name()<<"::"<<__func__;
+    MC::RuleAST *baseAST = root->getFirstAST();
+    assert (baseAST != NULL && baseAST->getType() == "BASE");
+    LOG(INFOL) << "Setting base: " << baseAST->getFirstValue();
+    setBase(baseAST->getFirstValue());
+    LOG(TRACEL) << "    " << typeid(this).name()<<"::"<<__func__ << "completed";
+}
+
+void Program::generatePrefix(MC::RuleAST *root) {
+    LOG(TRACEL) << "    starting " << typeid(this).name()<<"::"<<__func__;
+    MC::RuleAST *prefixAST = root->getFirstAST();
+    assert (baseAST != NULL && baseAST->getType() == "PREFIX");
+    std::string prefix = prefixAST->getFirstValue();
+    std::string fullPrefix = prefixAST->getSecondValue();
+    LOG(INFOL) << "Setting prefix: " << prefix << ": " << fullPrefix;
+    prefixes.insert(make_pair(prefix, fullPrefix));
+    LOG(TRACEL) << "    " << typeid(this).name()<<"::"<<__func__ << "completed";
+}
+
+void Program::generateListOfSections(MC::RuleAST *root,
+        bool rewriteMultihead,
+        Dictionary *dictVariables,
+        std::vector<Literal> *listOfLiterals,
+        std::vector<VTerm> *terms) {
+    LOG(TRACEL) << "    starting " << typeid(this).name()<<"::"<<__func__;
+    MC::RuleAST *first = root->getFirstAST();
+    assert(first != NULL);
+    interpretateAST(first, rewriteMultihead, dictVariables, listOfLiterals, terms);
+    MC::RuleAST *second = root->getSecondAST();
+    if (second != NULL) {
+        interpretateAST(second, rewriteMultihead, dictVariables, listOfLiterals, terms);
+    }
+    LOG(TRACEL) << "    " << typeid(this).name()<<"::"<<__func__ << "completed";
+}
+void Program::generateRuleSection(MC::RuleAST *root,
+        bool rewriteMultihead,
+        Dictionary *dictVariables,
+        std::vector<Literal> *listOfLiterals,
+        std::vector<VTerm> *terms) {
+    LOG(TRACEL) << "    starting " << typeid(this).name()<<"::"<<__func__;
+    MC::RuleAST *first = root->getFirstAST();
+    if (first != NULL)
+        interpretateAST(first, rewriteMultihead, dictVariables, listOfLiterals, terms);
+    else
+        LOG(DEBUGL) << "    empty rule set";
+    //second is null
+    LOG(TRACEL) << "    " << typeid(this).name()<<"::"<<__func__ << "completed";
+}
+
+void Program::generateListOfRules(MC::RuleAST *root,
+        bool rewriteMultihead,
+        Dictionary *dictVariables,
+        std::vector<Literal> *listOfLiterals,
+        std::vector<VTerm> *terms) {
+    LOG(TRACEL) << "    starting " << typeid(this).name()<<"::"<<__func__;
+    MC::RuleAST *first = root->getFirstAST();
+    assert(first != NULL);
+    interpretateAST(first, rewriteMultihead, dictVariables, listOfLiterals, terms);
+    MC::RuleAST *second = root->getSecondAST();
+    if (second != NULL) {
+        interpretateAST(second, rewriteMultihead, dictVariables, listOfLiterals, terms);
+    }
+    LOG(TRACEL) << "    " << typeid(this).name()<<"::"<<__func__ << "completed";
+}
+
+void Program::generateRule(MC::RuleAST *root,
+        bool rewriteMultihead,
+        Dictionary *dictVariables,
+        std::vector<Literal> *listOfLiterals, 
+        std::vector<VTerm> *terms) {
+    LOG(TRACEL) << "    starting " << typeid(this).name()<<"::"<<__func__;
+    Dictionary dVariables;
+    MC::RuleAST * headAST = root->getFirstAST();
+    if (headAST == NULL)
+        throw "Error, headAST can not be null";
+    MC::RuleAST * bodyAST = root->getSecondAST();
+    if (bodyAST == NULL)
+        throw "Error, bodyAST can not be null";
+    std::vector<Literal> listOfHeadLiterals;
+    std::vector<Literal> listOfBodyLiterals;
+    interpretateAST(headAST, rewriteMultihead, &dVariables, &listOfHeadLiterals, terms);
+    interpretateAST(bodyAST, rewriteMultihead, &dVariables, &listOfBodyLiterals, terms);
+    //Add the rule
+    Rule r = Rule(allrules.size(), listOfHeadLiterals, listOfBodyLiterals);
+    addRule(r, rewriteMultihead);
+
+    LOG(DEBUGL) <<  "    adding rule: "<< r.toprettystring(this, this->kb, false);
+    LOG(DEBUGL) <<  "    adding rule: "<< base;
+    LOG(DEBUGL) <<  "    rule parsing completed";
+    LOG(TRACEL) << "    " << typeid(this).name()<<"::"<<__func__ << "completed";
+}
+
+void Program::generateListOfLiterals(MC::RuleAST *root,
+        bool rewriteMultihead,
+        Dictionary *dictVariables,
+        std::vector<Literal> *listOfLiterals,
+        std::vector<VTerm> *terms) {
+    LOG(TRACEL) << "    starting " << typeid(this).name()<<"::"<<__func__;
+        MC::RuleAST *firstLiteral = root->getFirstAST();
+        if (firstLiteral != NULL) {
+            interpretateAST(firstLiteral, rewriteMultihead, dictVariables, listOfLiterals, NULL);
+        }
+        MC::RuleAST *rest = root->getSecondAST();
+        if (rest != NULL) {
+            interpretateAST(rest, rewriteMultihead, dictVariables, listOfLiterals, NULL);
+        }
+    LOG(TRACEL) << "    " << typeid(this).name()<<"::"<<__func__ << "completed";
+}
+
+void Program::generateFact(MC::RuleAST *root,
+        bool rewriteMultihead,
+        Dictionary *dictVariables,
+        std::vector<Literal> *listOfLiterals,
+        std::vector<VTerm> *terms) {
+        LOG(DEBUGL) << "    starting fact parsing";
+        LOG(DEBUGL) << "    NOT IMPLEMENTED YET";
+    LOG(TRACEL) << "    " << typeid(this).name()<<"::"<<__func__ << "completed";
+}
+
+void Program::generatePositiveLiteral(MC::RuleAST *root,
+        bool rewriteMultihead,
+        Dictionary *dictVariables,
+        std::vector<Literal> *listOfLiterals,
+        std::vector<VTerm> *terms) {
+    LOG(TRACEL) << "    starting " << typeid(this).name()<<"::"<<__func__;
+        std::string predicate;
+        if (root->getFirstAST()->getType() =="IRI")
+            predicate = generateIRI(root->getFirstAST());
+        else if (root->getFirstAST()->getType() =="PREDNAME")
+            predicate = root->getFirstAST()->getFirstValue();
+        else
+           throw std::string(typeid(this).name()) + "::"  + __func__ + " Invalid predicate name";
+        std::vector<VTerm> t;
+        MC::RuleAST *listOfTerms = root->getSecondAST();
+        interpretateAST(listOfTerms, rewriteMultihead, dictVariables, listOfLiterals, &t);
+        if (t.size() != (uint8_t) t.size()) {
+            throw "Arity of predicate " + predicate + " is too high (" + std::to_string(t.size()) + " > 255)";
+        }
+
+        VTuple t1((uint8_t) t.size());
+        int pos = 0;
+        for (std::vector<VTerm>::iterator itr = t.begin(); itr != t.end(); ++itr) {
+            t1.set(*itr, pos++);
+        }
+
+        //Determine predicate
+        PredId_t predid = (PredId_t) dictPredicates.getOrAdd(predicate);
+        if (cardPredicates.find(predid) == cardPredicates.end()) {
+            cardPredicates.insert(make_pair(predid, t.size()));
+        } else {
+            if (cardPredicates.find(predid)->second != t.size()) {
+                throw ("Wrong arity in predicate \""+ predicate + "\". It should be " + std::to_string((int) cardPredicates.find(predid)->second) +".");
+            }
+        }
+        Predicate pred(predid, Predicate::calculateAdornment(t1), kb->doesPredExists(predid) ? EDB : IDB, (uint8_t) t.size());
+        LOG(DEBUGL) << "Predicate : " << predicate << ", type = " << ((pred.getType() == EDB) ? "EDB" : "IDB");
+
+        Literal literal(pred, t1, false);
+        listOfLiterals->push_back(literal);
+    LOG(TRACEL) << "    " << typeid(this).name()<<"::"<<__func__ << "completed";
+}
+
+void Program::generateNegativeLiteral(MC::RuleAST *root,
+        bool rewriteMultihead,
+        Dictionary *dictVariables,
+        std::vector<Literal> *listOfLiterals,
+        std::vector<VTerm> *terms) {
+    LOG(TRACEL) << "    starting " << typeid(this).name()<<"::"<<__func__;
+    std::string predicate;
+    if (root->getFirstAST()->getType() =="IRI")
+        predicate = generateIRI(root->getFirstAST());
+    else if (root->getFirstAST()->getType() =="PREDNAME")
+        predicate = root->getFirstAST()->getFirstValue();
+    else
+       throw std::string(typeid(this).name()) + "::"  + __func__ + " Invalid predicate name";
+    std::vector<VTerm> t;
+    MC::RuleAST *listOfTerms = root->getSecondAST();
+    interpretateAST(listOfTerms, rewriteMultihead, dictVariables, listOfLiterals, &t);
+    if (t.size() != (uint8_t) t.size()) {
+        throw "Arity of predicate " + predicate + " is too high (" + std::to_string(t.size()) + " > 255)";
+    }
+
+    VTuple t1((uint8_t) t.size());
+    int pos = 0;
+    for (std::vector<VTerm>::iterator itr = t.begin(); itr != t.end(); ++itr) {
+        t1.set(*itr, pos++);
+    }
+
+    //Determine predicate
+    PredId_t predid = (PredId_t) dictPredicates.getOrAdd(predicate);
+    if (cardPredicates.find(predid) == cardPredicates.end()) {
+        cardPredicates.insert(make_pair(predid, t.size()));
+    } else {
+        if (cardPredicates.find(predid)->second != t.size()) {
+            throw ("Wrong arity in predicate \""+ predicate + "\". It should be " + std::to_string((int) cardPredicates.find(predid)->second) +".");
+        }
+    }
+    Predicate pred(predid, Predicate::calculateAdornment(t1), kb->doesPredExists(predid) ? EDB : IDB, (uint8_t) t.size());
+    LOG(DEBUGL) << "Predicate : " << predicate << ", type = " << ((pred.getType() == EDB) ? "EDB" : "IDB");
+
+    Literal literal(pred, t1, true);
+    listOfLiterals->push_back(literal);
+    LOG(TRACEL) << "    " << typeid(this).name()<<"::"<<__func__ << "completed";
+}
+
+void Program::generateListOfTerms(MC::RuleAST *root,
+        bool rewriteMultihead,
+        Dictionary *dictVariables,
+        std::vector<Literal> *listOfLiterals,
+        std::vector<VTerm> *terms) {
+    LOG(TRACEL) << "    starting " << typeid(this).name()<<"::"<<__func__;
+        MC::RuleAST *firstTerm = root->getFirstAST();
+        if (firstTerm != NULL) {
+            interpretateAST(firstTerm, rewriteMultihead, dictVariables, listOfLiterals, terms);
+        }
+        MC::RuleAST *rest = root->getSecondAST();
+        if (rest != NULL) {
+            interpretateAST(rest, rewriteMultihead, dictVariables, listOfLiterals, terms);
+        }
+    LOG(TRACEL) << "    " << typeid(this).name()<<"::"<<__func__ << "completed";
+}
+
+void Program::generateTerm(MC::RuleAST *root,
+        bool rewriteMultihead,
+        Dictionary *dictVariables,
+        std::vector<Literal> *listOfLiterals,
+        std::vector<VTerm> *terms) {
+    LOG(TRACEL) << "    starting " << typeid(this).name()<<"::"<<__func__;
+
+    MC::RuleAST *term = root->getFirstAST();
+    assert(term != NULL);
+    if (term->getType() == "IRI") {
+        std::string iri = generateIRI(term);
+        uint64_t dictTerm;
+        if (!kb->getOrAddDictNumber(iri.c_str(), iri.size(), dictTerm)) {
+            //Get an ID from the temporary dictionary
+            //dictTerm = additionalConstants.getOrAdd(term);
+            throw 10; //Could not add a term? Why?
+        }
+        if (terms == NULL)
+            throw std::string(typeid(this).name()) + "::"  + __func__ + " error. Terms can not be null";
+        terms->push_back(VTerm(0, dictTerm));
+    }
+    else if (term->getType() == "RDFLITERAL") {
+        std::string rdfLiteral = generateRDFLiteral(term);
+        uint64_t dictTerm;
+        if (!kb->getOrAddDictNumber(rdfLiteral.c_str(), rdfLiteral.size(), dictTerm)) {
+            //Get an ID from the temporary dictionary
+            //dictTerm = additionalConstants.getOrAdd(term);
+            throw 10; //Could not add a term? Why?
+        }
+        if (terms == NULL)
+            throw std::string(typeid(this).name()) + "::"  + __func__ + " error. Terms can not be null";
+        terms->push_back(VTerm(0, dictTerm));
+    }
+    else if (term->getType() == "VARIABLE"){
+        std::string variable = term->getFirstValue();
+        if (dictVariables == NULL)
+            throw std::string(typeid(this).name()) + "::"  + __func__ + " DictVariables can not be null";
+        if (terms == NULL)
+            throw std::string(typeid(this).name()) + "::"  + __func__ + " Terms can not be null";
+        uint64_t v = dictVariables->getOrAdd(variable);
+        if (v != (uint8_t) v) {
+            throw "Too many variables in rule (> 255)";
+        }
+        terms->push_back(VTerm((uint8_t) v, 0));
+    } else{
+        throw std::string(typeid(this).name()) + "::"  + __func__ + " error. Invalid Term";
+    }
+    LOG(TRACEL) << "    " << typeid(this).name()<<"::"<<__func__ << "completed";
+}
+
+void Program::generateFactSection(MC::RuleAST *root,
+        bool rewriteMultihead,
+        Dictionary *dictVariables,
+        std::vector<Literal> *listOfLiterals,
+        std::vector<VTerm> *terms) {
+    LOG(TRACEL) << "    starting " << typeid(this).name()<<"::"<<__func__;
+    MC::RuleAST *first = root->getFirstAST();
+    if (first != NULL)
+        interpretateAST(first, rewriteMultihead, dictVariables, listOfLiterals, terms);
+    else
+        LOG(DEBUGL) << "    empty fact set";
+    //second is null
+    LOG(DEBUGL) << "    fact section parsing completed";
+}
+
+void Program::generateListOfFacts(MC::RuleAST *root,
+        bool rewriteMultihead,
+        Dictionary *dictVariables,
+        std::vector<Literal> *listOfLiterals,
+        std::vector<VTerm> *terms) {
+    LOG(TRACEL) << "    starting " << typeid(this).name()<<"::"<<__func__;
+        MC::RuleAST *first = root->getFirstAST();
+        assert(first != NULL);
+        interpretateAST(first, rewriteMultihead, dictVariables, listOfLiterals, terms);
+        MC::RuleAST *second = root->getSecondAST();
+        if (second != NULL) {
+            interpretateAST(second, rewriteMultihead, dictVariables, listOfLiterals, terms);
+        }
+    LOG(TRACEL) << "    " << typeid(this).name()<<"::"<<__func__ << "completed";
+}
+
+std::string Program::generateRDFLiteral(MC::RuleAST *root){
+    LOG(TRACEL) << "    starting " << typeid(this).name()<<"::"<<__func__;
+    //std::string constant = rewriteRDFOWLConstants(root->getFirstValue());
+    std::string rdfLiteral = root->getFirstValue();
+    /*
+     * We are going to ignore langTag and type ^^iri from now.
+    std::string langTag = root.getSecondValue();
+    if (langRag != NULL) {
+        constant += langTag;
+    }
+    // if string is of the form string^^iri
+    MC::RuleAST *first = root->getFirstAST();
+    if (first != NULL) {
+        constant += "^^"+rewriteRDFOWLConstants(root->getFirstValue());
+    }
+    */
+    LOG(TRACEL) << "    " << typeid(this).name()<<"::"<<__func__ << "completed";
+    return rdfLiteral;
+}
+
+std::string Program::generateIRI(MC::RuleAST *root){
+    //LOG(TRACEL) << "    starting " << typeid(this).name()<<"::"<<__func__;
+    return root->getFirstValue();
+    //LOG(TRACEL) << "    " << typeid(this).name()<<"::"<<__func__ << "completed";
 }
 
 
@@ -858,268 +1263,6 @@ std::string Program::readFromFile(std::string pathFile, bool rewriteMultihead) {
         //LOG(INFOL) << "New assigned constants: " << additionalConstants.size();
     }
     return "";
-}
-
-//TODO use rewrite Multihead
-void Program::parseRuleFile(std::string pathFile, bool rewriteMultihead) {
-    MC::RuleDriver driver;
-    LOG(DEBUGL) << "LARRY parsing 1";
-    driver.parse(pathFile);
-    LOG(DEBUGL) << "LARRY parsing 2";
-    MC::RuleAST *root = driver.get_root();
-    LOG(DEBUGL) << "LARRY parsing 3";
-    root->print();
-    LOG(DEBUGL) << "LARRY parsing 4";
-    parseAST(root, rewriteMultihead, NULL, NULL, NULL);
-    LOG(DEBUGL) << "LARRY parsing 5";
-}
-
-void Program::parseAST(MC::RuleAST *root, bool rewriteMultihead, Dictionary *dictVariables, std::vector<Literal> *listOfLiterals, std::vector<VTerm> *terms){
-    //see also: files rulelexer.l and ruleparser.yy TODO: rename those files
-    //TODO transform this to integers and use a switch
-    std::string type = root->getType();
-    LOG(DEBUGL) << "    starting Program::parseAST";
-    LOG(DEBUGL) << "    type: " << type;
-
-    if (type == "BASE"){
-        parseBase(root);
-    }
-    else if (type == "PREFIX"){
-        parsePrefix(root);
-    }
-    else if (type == "LISTOFSECTIONS") {
-        LOG(DEBUGL) << "    starting list of section parsing";
-        MC::RuleAST *first = root->getFirstAST();
-        assert(first != NULL);
-        parseAST(first, rewriteMultihead, dictVariables, listOfLiterals, terms);
-        MC::RuleAST *second = root->getSecondAST();
-        if (second != NULL) {
-            parseAST(second, rewriteMultihead, dictVariables, listOfLiterals, terms);
-        }
-        LOG(DEBUGL) << "    list of section parsing completed";
-    }
-    else if (type == "RULESECTION") {
-        LOG(DEBUGL) << "    starting rule section parsing";
-        MC::RuleAST *first = root->getFirstAST();
-        if (first != NULL)
-            parseAST(first, rewriteMultihead, dictVariables, listOfLiterals, terms);
-        else
-            LOG(DEBUGL) << "    empty rule set";
-        //second is null
-        LOG(DEBUGL) << "    rule section parsing completed";
-    }
-    else if (type == "FACTSECTION") {
-        LOG(DEBUGL) << "    starting fact section parsing";
-        MC::RuleAST *first = root->getFirstAST();
-        if (first != NULL)
-            parseAST(first, rewriteMultihead, dictVariables, listOfLiterals, terms);
-        else
-            LOG(DEBUGL) << "    empty fact set";
-        //second is null
-        LOG(DEBUGL) << "    fact section parsing completed";
-    }
-    else if (type == "LISTOFRULES") {
-        LOG(DEBUGL) << "    starting list of rules parsing";
-        MC::RuleAST *first = root->getFirstAST();
-        assert(first != NULL);
-        parseAST(first, rewriteMultihead, dictVariables, listOfLiterals, terms);
-        MC::RuleAST *second = root->getSecondAST();
-        if (second != NULL) {
-            parseAST(second, rewriteMultihead, dictVariables, listOfLiterals, terms);
-        }
-        LOG(DEBUGL) << "    list of rules parsing completed";
-    }
-    else if (type == "LISTOFFACTS") {
-        LOG(DEBUGL) << "    starting list of facts parsing";
-        MC::RuleAST *first = root->getFirstAST();
-        assert(first != NULL);
-        parseAST(first, rewriteMultihead, dictVariables, listOfLiterals, terms);
-        MC::RuleAST *second = root->getSecondAST();
-        if (second != NULL) {
-            parseAST(second, rewriteMultihead, dictVariables, listOfLiterals, terms);
-        }
-        LOG(DEBUGL) << "    list of facts parsing completed";
-    }
-    else if (type == "RULE") {
-        LOG(DEBUGL) << "    starting rule parsing";
-        Dictionary dVariables;
-        MC::RuleAST * headAST = root->getFirstAST();
-        if (headAST == NULL)
-            throw "Error, headAST can not be null";
-        MC::RuleAST * bodyAST = root->getSecondAST();
-        if (bodyAST == NULL)
-            throw "Error, bodyAST can not be null";
-        std::vector<Literal> listOfHeadLiterals;
-        std::vector<Literal> listOfBodyLiterals;
-        parseAST(headAST, rewriteMultihead, &dVariables, &listOfHeadLiterals, terms);
-        parseAST(bodyAST, rewriteMultihead, &dVariables, &listOfBodyLiterals, terms);
-        //Add the rule
-        Rule r = Rule(allrules.size(), listOfHeadLiterals, listOfBodyLiterals);
-        addRule(r, rewriteMultihead);
-        LOG(DEBUGL) <<  "    adding rule: "<< r.toprettystring(this, this->kb, false);
-        LOG(DEBUGL) <<  "    rule parsing completed";
-    }
-    else if (type == "FACT") {
-        LOG(DEBUGL) << "    starting fact parsing";
-        LOG(DEBUGL) << "    NOT IMPLEMENTED YET";
-        LOG(DEBUGL) << "    fact parsing completed";
-    }
-    else if (type == "LISTOFLITERALS") {
-        LOG(DEBUGL) <<  "    starting listofliterals parsing";
-        MC::RuleAST *firstLiteral = root->getFirstAST();
-        if (firstLiteral != NULL) {
-            parseAST(firstLiteral, rewriteMultihead, dictVariables, listOfLiterals, NULL);
-        }
-        MC::RuleAST *rest = root->getSecondAST();
-        if (rest != NULL) {
-            parseAST(rest, rewriteMultihead, dictVariables, listOfLiterals, NULL);
-        }
-        LOG(DEBUGL) <<  "    listofliterals parsing completed";
-    }
-    else if (type == "POSITIVELITERAL") {
-        LOG(DEBUGL) <<  "L starting positive literal parsing";
-        std::string predicate = root->getFirstValue();
-        std::vector<VTerm> t;
-        MC::RuleAST *listOfTerms = root->getFirstAST();
-        parseAST(listOfTerms, rewriteMultihead, dictVariables, listOfLiterals, &t);
-        if (t.size() != (uint8_t) t.size()) {
-            throw "Arity of predicate " + predicate + " is too high (" + std::to_string(t.size()) + " > 255)";
-        }
-
-        VTuple t1((uint8_t) t.size());
-        int pos = 0;
-        for (std::vector<VTerm>::iterator itr = t.begin(); itr != t.end(); ++itr) {
-            t1.set(*itr, pos++);
-        }
-
-        //Check if predicate starts with "neg_".
-        //bool negated = false;
-        //if (predicate.substr(0,4) == "neg_") {
-        //    negated = true;
-        //    predicate = predicate.substr(4);
-        //}
-
-        //Determine predicate
-        PredId_t predid = (PredId_t) dictPredicates.getOrAdd(predicate);
-        if (cardPredicates.find(predid) == cardPredicates.end()) {
-            cardPredicates.insert(make_pair(predid, t.size()));
-        } else {
-            if (cardPredicates.find(predid)->second != t.size()) {
-                throw ("Wrong arity in predicate \""+ predicate + "\". It should be " + std::to_string((int) cardPredicates.find(predid)->second) +".");
-            }
-        }
-        Predicate pred(predid, Predicate::calculateAdornment(t1), kb->doesPredExists(predid) ? EDB : IDB, (uint8_t) t.size());
-        LOG(DEBUGL) << "Predicate : " << predicate << ", type = " << ((pred.getType() == EDB) ? "EDB" : "IDB");
-
-        Literal literal(pred, t1, false);
-        listOfLiterals->push_back(literal);
-        LOG(DEBUGL) <<  "    positive literal parsing completed";
-    }
-    else if (type == "NEGATIVELITERAL") {
-        LOG(DEBUGL) <<  "    starting negative literal parsing";
-        std::string predicate = root->getFirstValue();
-        std::vector<VTerm> t;
-        MC::RuleAST *listOfTerms = root->getFirstAST();
-        parseAST(listOfTerms, rewriteMultihead, dictVariables, listOfLiterals, &t);
-        if (t.size() != (uint8_t) t.size()) {
-            throw "Arity of predicate " + predicate + " is too high (" + std::to_string(t.size()) + " > 255)";
-        }
-
-        VTuple t1((uint8_t) t.size());
-        int pos = 0;
-        for (std::vector<VTerm>::iterator itr = t.begin(); itr != t.end(); ++itr) {
-            t1.set(*itr, pos++);
-        }
-
-        //Check if predicate starts with "neg_".
-        //bool negated = false;
-        //if (predicate.substr(0,4) == "neg_") {
-        //    negated = true;
-        //    predicate = predicate.substr(4);
-        //}
-
-        //Determine predicate
-        PredId_t predid = (PredId_t) dictPredicates.getOrAdd(predicate);
-        if (cardPredicates.find(predid) == cardPredicates.end()) {
-            cardPredicates.insert(make_pair(predid, t.size()));
-        } else {
-            if (cardPredicates.find(predid)->second != t.size()) {
-                throw ("Wrong arity in predicate \""+ predicate + "\". It should be " + std::to_string((int) cardPredicates.find(predid)->second) +".");
-            }
-        }
-        Predicate pred(predid, Predicate::calculateAdornment(t1), kb->doesPredExists(predid) ? EDB : IDB, (uint8_t) t.size());
-        LOG(DEBUGL) << "Predicate : " << predicate << ", type = " << ((pred.getType() == EDB) ? "EDB" : "IDB");
-
-        Literal literal(pred, t1, true);
-        listOfLiterals->push_back(literal);
-        LOG(DEBUGL) <<  "    negative literal parsing completed";
-    }
-    else if (type == "LISTOFTERMS") {
-        LOG(DEBUGL) <<  "L starting listofterms parsing";
-        MC::RuleAST *firstTerm = root->getFirstAST();
-        if (firstTerm != NULL) {
-            parseAST(firstTerm, rewriteMultihead, dictVariables, listOfLiterals, terms);
-        }
-        MC::RuleAST *rest = root->getSecondAST();
-        if (rest != NULL) {
-            parseAST(rest, rewriteMultihead, dictVariables, listOfLiterals, terms);
-        }
-        LOG(DEBUGL) <<  "    listofterms parsing completed";
-    } else if (type == "VARIABLE") {
-        parseVariableAST(root, dictVariables, terms);
-    } else if (type == "CONSTANT") {
-        parseConstantAST(root, terms);
-    } else {
-        LOG(DEBUGL) << "    ERROR: " << type;
-        throw "parseAST error";
-    }
-    LOG(DEBUGL) << "L: Program::parseAST completed";
-}
-
-
-void Program::parseBase(MC::RuleAST *root) {
-    LOG(INFOL) << "Setting base: " << root->getFirstValue();
-    base = root->getFirstValue();
-}
-
-void Program::parsePrefix(MC::RuleAST *root) {
-    std::string prefix = root->getFirstValue();
-    std::string fullPrefix = root->getSecondValue();
-    LOG(INFOL) << "Setting prefix: " << prefix << ": " << fullPrefix;
-    prefixes.insert(make_pair(prefix, fullPrefix));
-}
-
-void Program::parseVariableAST(MC::RuleAST *root, Dictionary *dictVariables, std::vector<VTerm> *terms){
-    //LOG(DEBUGL) << "L. starting variable parsing";
-    if (dictVariables == NULL)
-        throw "parseVariableAST error. dictVariables can not be null";
-    if (terms == NULL)
-        throw "parseVariableAST error. terms can not be null";
-    std::string variable = root->getFirstValue();
-    uint64_t v = dictVariables->getOrAdd(variable);
-    if (v != (uint8_t) v) {
-        throw "Too many variables in rule (> 255)";
-    }
-    terms->push_back(VTerm((uint8_t) v, 0));
-    //LOG(DEBUGL) << "L. variable parsing complete";
-}
-
-void Program::parseConstantAST(MC::RuleAST *root, std::vector<VTerm> *terms){
-    //LOG(DEBUGL) << "L. starting constant parsing";
-    std::string constant = rewriteRDFOWLConstants(root->getFirstValue());
-    //LOG(DEBUGL) << "L. constant" << constant;
-    uint64_t dictTerm;
-    if (!kb->getOrAddDictNumber(constant.c_str(), constant.size(), dictTerm)) {
-        //Get an ID from the temporary dictionary
-        //dictTerm = additionalConstants.getOrAdd(term);
-        throw 10; //Could not add a term? Why?
-    }
-    if (terms == NULL)
-        throw "parseConstantAST error. Terms can not be null";
-    terms->push_back(VTerm(0, dictTerm));
-    //MC::RuleAST * next = root->getFirstAST();
-    //if (next != NULL)
-    LOG(DEBUGL) << "L constant parsing completed";
 }
 
 
@@ -1733,3 +1876,5 @@ std::vector<Substitution> inverse_concat(std::vector<Substitution>& sigma1, std:
     }
     return result;
 }
+
+
