@@ -1017,12 +1017,7 @@ void Program::generateRule(MC::RuleAST *root,
     interpretateAST(headAST, rewriteMultihead, &dVariables, &listOfHeadLiterals, terms);
     interpretateAST(bodyAST, rewriteMultihead, &dVariables, &listOfBodyLiterals, terms);
     //Add the rule
-    Rule r = Rule(allrules.size(), listOfHeadLiterals, listOfBodyLiterals);
-    addRule(r, rewriteMultihead);
-
-    LOG(DEBUGL) <<  "    adding rule: "<< r.toprettystring(this, this->kb, false);
-    LOG(DEBUGL) <<  "    adding rule: "<< base;
-    LOG(DEBUGL) <<  "    rule parsing completed";
+    addRule(listOfHeadLiterals, listOfBodyLiterals, rewriteMultihead);
     LOG(TRACEL) << "    " << typeid(this).name()<<"::"<<__func__ << "completed";
 }
 
