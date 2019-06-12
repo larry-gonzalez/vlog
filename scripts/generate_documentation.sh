@@ -1,8 +1,8 @@
 #!/bin/bash
 
 #It requires doxygen and graphviz
-#doxygen: http://www.doxygen.org/download.html
-#graphviz: sudo apt-get install graphviz
+# sudo apt-get install doxygen
+# sudo apt-get install graphviz
 #see ../docs/html/index.html
 rm -fr ../docs
 mkdir ../docs
