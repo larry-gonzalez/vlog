@@ -311,7 +311,7 @@ void RuleExecutionDetails::calculateDependencies(const Rule &rule,
     //Calculate the dependencies of the existential variables to the variables in the body
     std::map<uint8_t, std::set<uint8_t>> dependenciesExtVars_tmp;
     auto extvars = rule.getVarsNotInBody();
-    auto othervars = rule.getVarsInBody();
+    auto othervars = rule.getVarsInHeadAndBody();
     for(auto head : rule.getHeads()) {
         auto allvars = head.getAllVars();
         for(auto v : allvars) {
@@ -447,10 +447,10 @@ void RuleExecutionDetails::createExecutionPlans(bool copyAllVars) {
 
             //New version. Should be able to catch everything
             for (int i = 0; i < p->plan.size(); ++i) {
-                if (p->plan[i]->getPredicate().getType() == EDB) {
+				const Literal *l = p->plan[i];
+                if (l->getPredicate().getType() == EDB || l->isNegated()) {
                     p->ranges.push_back(std::make_pair(0, (size_t) - 1));
                 } else {
-                    const Literal *l = p->plan[i];
                     if (l == &bodyLiterals[*itr]) {
                         p->ranges.push_back(std::make_pair(1, (size_t) - 1));
                     } else if (l < &bodyLiterals[*itr]) {

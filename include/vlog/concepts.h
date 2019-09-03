@@ -29,7 +29,7 @@ inline std::string fields2str(const std::vector<uint8_t> &fields) {
     ostringstream os;
     os << "[" << fields.size() << "]{";
     for (auto f : fields) {
-       os << (int)f << ",";
+        os << (int)f << ",";
     }
     os << "}";
 
@@ -95,6 +95,14 @@ class VTuple {
 
         void set(const VTerm term, const int pos) {
             terms[pos] = term;
+        }
+
+        void replaceAll(const VTerm termA, const VTerm termB) {
+            for (int i = 0; i < sizetuple; i++) {
+                if (terms[i] == termA) {
+                    terms[i] = termB;
+                }
+            }
         }
 
         std::vector<std::pair<uint8_t, uint8_t>> getRepeatedVars() const {
@@ -360,8 +368,8 @@ class Rule {
             }
 
         Rule(uint32_t ruleId, Rule &r) : ruleId(ruleId),
-            heads(r.heads), body(r.body), _isRecursive(r._isRecursive),
-            existential(r.existential) {
+        heads(r.heads), body(r.body), _isRecursive(r._isRecursive),
+        existential(r.existential) {
         }
 
         Rule createAdornment(uint8_t headAdornment) const;
@@ -392,7 +400,7 @@ class Rule {
 
         std::vector<uint8_t> getVarsNotInBody() const;  // Existential variables.
 
-        std::vector<uint8_t> getVarsInBody() const; // Variables in the head that also occur in the body.
+        std::vector<uint8_t> getVarsInHeadAndBody(PredId_t predToIgnore = -1) const; // Variables in the head that also occur in the body.
 
         const std::vector<Literal> &getBody() const {
             return body;
@@ -489,9 +497,9 @@ class Program {
             kb = e;
         }
 
-	uint64_t getMaxPredicateId() {
-	    return dictPredicates.getCounter();
-	}
+        uint64_t getMaxPredicateId() {
+            return dictPredicates.getCounter();
+        }
 
         std::string parseRule(std::string rule, bool rewriteMultihead);
 

@@ -152,9 +152,9 @@ std::string Literal::toprettystring(Program *program, EDBLayer *db, bool replace
         if (tuple.get(i).isVariable()) {
             out += std::string("A") + std::to_string(tuple.get(i).getId());
         } else {
-	    if (replaceConstants) {
-		out += "*";
-	    } else if (db == NULL) {
+            if (replaceConstants) {
+                out += "*";
+            } else if (db == NULL) {
                 out += std::to_string(tuple.get(i).getValue());
             } else {
                 uint64_t id = tuple.get(i).getValue();
@@ -668,10 +668,13 @@ std::vector<uint8_t> Rule::getVarsNotInBody() const {
     return out;
 }
 
-std::vector<uint8_t> Rule::getVarsInBody() const {
+std::vector<uint8_t> Rule::getVarsInHeadAndBody(PredId_t predToIgnore) const {
     //Check if every variable in the head appears in the body
     std::vector<uint8_t> out;
     for(const auto& head : heads) {
+        if (head.getPredicate().getId() == predToIgnore)
+            continue;
+
         for(auto var : head.getAllVars()) {
             //Does var appear in the body?
             bool ok = false;
@@ -713,19 +716,19 @@ std::string Rule::toprettystring(Program * program, EDBLayer *db, bool replaceCo
     std::string output = "";
     bool first = true;
     for(const auto& head : heads) {
-	if (! first) {
-	    output += ",";
-	}
+        if (! first) {
+            output += ",";
+        }
         output += head.toprettystring(program, db, replaceConstants);
-	first = false;
+        first = false;
     }
     output += " :- ";
     first = true;
     for (int i = 0; i < body.size(); ++i) {
-	if (! first) {
-	    output += ",";
-	}
-	first = false;
+        if (! first) {
+            output += ",";
+        }
+        first = false;
         output += body[i].toprettystring(program, db, replaceConstants);
     }
     return output;
@@ -781,7 +784,7 @@ bool Program::stratify(std::vector<int> &stratification, int &nClasses) {
         stratification[i] = -1;
     }
 
-    
+
     int markedCount = 0;
     int count = 0;
     while (count < graphSize) {
@@ -845,7 +848,7 @@ Program::Program(Program *p, EDBLayer *kb) : kb(kb),
     rewriteCounter(0),
     dictPredicates(p->dictPredicates),
     cardPredicates(p->cardPredicates) {
-}
+    }
 
 std::string trim(const std::string& str,
         const std::string& whitespace = "\r \t")
@@ -952,8 +955,8 @@ Literal Program::parseLiteral(std::string l, Dictionary &dictVariables) {
     }
     std::string predicate = trim(l.substr(0, posBeginTuple));
     if (predicate.substr(0,1) == "~") {
-	negated = true;
-	predicate = trim(l.substr(1));
+        negated = true;
+        predicate = trim(l.substr(1));
     }
     std::string tuple = l.substr(posBeginTuple + 1, std::string::npos);
     if (tuple[tuple.size() - 1] != ')') {
@@ -1239,6 +1242,13 @@ std::string Program::parseRule(std::string rule, bool rewriteMultihead) {
             }
             LOG(DEBUGL) << "headliteral = \"" << headLiteral << "\"";
             Literal h = parseLiteral(headLiteral, dictVariables);
+			if (h.isNegated()) {
+				throw "head literal cannot be negated";
+			}
+			Predicate pred = h.getPredicate();
+			if (pred.getType() == EDB) {
+				throw "predicate in head cannot be EDB";
+			}
             lHeads.push_back(h);
         }
 
@@ -1365,11 +1375,11 @@ int64_t Program::getOrAddPredicate(std::string & p, uint8_t cardinality) {
     PredId_t id = (PredId_t) dictPredicates.getOrAdd(p);
     if (cardPredicates.find(id) == cardPredicates.end()) {
         cardPredicates.insert(make_pair(id, cardinality));
-    } else {
-        if (cardPredicates.find(id)->second != cardinality) {
-            LOG(INFOL) << "Wrong cardinality for predicate " << p << ": should be " << (int) cardPredicates.find(id)->second;
-            return -1;
-        }
+    } else if (cardPredicates.find(id)->second == 0) {
+		cardPredicates.find(id)->second = cardinality;
+	} else if (cardPredicates.find(id)->second != cardinality) {
+		LOG(INFOL) << "Wrong cardinality for predicate " << p << ": should be " << (int) cardPredicates.find(id)->second;
+		return -1;
     }
     if (id >= rules.size()) {
         rules.resize(id+1);
