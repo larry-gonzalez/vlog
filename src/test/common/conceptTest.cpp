@@ -2,7 +2,6 @@
 #include <catch.hpp>
 #include <vlog/concepts.h>
 
-
 // VTerm
 
 TEST_CASE(""){
@@ -55,6 +54,7 @@ TEST_CASE("VTerm == and != operators") {
 }
 
 // VTuple
+
 TEST_CASE("VTuple size") {
     VTuple tuple(5);
     REQUIRE(tuple.getSize()==5);
@@ -151,3 +151,11 @@ TEST_CASE("VTuple getRepeatedVars") {
     REQUIRE(tuple1.getRepeatedVars()==expected);
 }
 
+
+// TODO Predicate
+
+// TODO Literal
+
+// TODO Rule
+
+// TODO Program
