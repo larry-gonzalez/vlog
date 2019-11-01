@@ -378,8 +378,16 @@ void startServer(int argc,
     std::unique_ptr<WebInterface> webint;
     int port = vm["port"].as<int>();
     std::string webinterface = vm["webpages"].as<string>();
+    std::string fullpath = "";
+    if (Utils::isAbsolutePath(webinterface)) {
+        //Absolute path
+        fullpath = webinterface;
+    } else {
+        //Relative path
+        fullpath = pathExec + "/" + webinterface;
+    }
     webint = std::unique_ptr<WebInterface>(
-            new WebInterface(vm, NULL, pathExec + "/" + webinterface,
+            new WebInterface(vm, NULL, fullpath,
                 flattenAllArgs(argc, argv),
                 vm["edb"].as<string>()));
     webint->start(port);
@@ -420,9 +428,18 @@ void launchTriggeredMat(int argc,
 #ifdef WEBINTERFACE
     //Start the web interface if requested
     std::unique_ptr<WebInterface> webint;
+    std::string fullpath = "";
+    std::string webinterface = vm["webpages"].as<string>();
+    if (Utils::isAbsolutePath(webinterface)) {
+        //Absolute path
+        fullpath = webinterface;
+    } else {
+        //Relative path
+        fullpath = pathExec + "/" + webinterface;
+    }
     if (vm["webinterface"].as<bool>()) {
         webint = std::unique_ptr<WebInterface>(
-                new WebInterface(vm, sn, pathExec + "/webinterface",
+                new WebInterface(vm, sn, fullpath,
                     flattenAllArgs(argc, argv),
                     vm["edb"].as<string>()));
         int port = vm["port"].as<int>();
@@ -723,7 +740,7 @@ void execSPARQLQuery(EDBLayer &edb, ProgramArgs &vm) {
     }
     std::string queryFileName = vm["query"].as<string>();
     // Parse the query
-    std::fstream inFile;
+    std::ifstream inFile;
     inFile.open(queryFileName);//open the input file
     std::stringstream strStream;
     strStream << inFile.rdbuf();//read the file
@@ -895,7 +912,7 @@ void execLiteralQuery(EDBLayer &edb, ProgramArgs &vm) {
     std::string queryFileName = vm["query"].as<string>();
     if (Utils::exists(queryFileName)) {
         // Parse the query
-        std::fstream inFile;
+        std::ifstream inFile;
         inFile.open(queryFileName);//open the input file
         std::getline(inFile, query);
         inFile.close();
@@ -940,6 +957,8 @@ int main(int argc, const char** argv) {
     if (!initParams(argc, argv, vm)) {
         return EXIT_FAILURE;
     }
+
+    try {
     std::string full_path = Utils::getFullPathExec();
     //Set logging level
     std::string ll = vm["logLevel"].as<string>();
@@ -1181,5 +1200,12 @@ int main(int argc, const char** argv) {
 
     //Print other stats
     LOG(INFOL) << "Max memory used: " << Utils::get_max_mem() << " MB";
+    } catch (int code) {
+        cerr << "ERROR code " << code << endl;
+        return EXIT_FAILURE;
+    } catch (const char* msg) {
+        cerr << "ERROR " << msg << endl;
+        return EXIT_FAILURE;
+    }
     return EXIT_SUCCESS;
 }
