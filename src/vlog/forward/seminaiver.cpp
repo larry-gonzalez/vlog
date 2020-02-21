@@ -326,41 +326,35 @@ void SemiNaiver::run(size_t lastExecution, size_t it, unsigned long *timeout,
     if ((typeChase == TypeChase::RESTRICTED_CHASE ||
                 typeChase == TypeChase::SUM_RESTRICTED_CHASE)
             && program->areExistentialRules()) {
+
         //Split the program: First execute the rules without existential
         //quantifiers, then all the others
-        std::vector<RuleExecutionDetails> originalEDBruleset = allEDBRules;
-        std::vector<std::vector<RuleExecutionDetails>> originalRuleset = allIDBRules;
 
-        //Only non-existential rules
-        std::vector<RuleExecutionDetails> tmpEDBRules;
-        for(auto &r : originalEDBruleset) {
+        //Split EDB rules into existential and non-existential
+        std::vector<RuleExecutionDetails> tmpEDBRules;    //non-existential EDB rules
+        std::vector<RuleExecutionDetails> tmpExtEDBRules; //existential EDB rules
+        for(auto &r : allEDBRules) {
             if (!r.rule.isExistential())  {
                 tmpEDBRules.push_back(r);
-            }
-        }
-        std::vector<std::vector<RuleExecutionDetails>> tmpIDBRules(nStratificationClasses);
-        for (int k = 0; k < originalRuleset.size(); k++) {
-            for(auto &r : originalRuleset[k]) {
-                if (!r.rule.isExistential()) {
-                    tmpIDBRules[k].push_back(r);
-                }
-            }
-        }
-        //Only existential rules
-        std::vector<RuleExecutionDetails> tmpExtEDBRules;
-        for(auto &r : originalEDBruleset) {
-            if (r.rule.isExistential())  {
+            } else {
                 tmpExtEDBRules.push_back(r);
             }
         }
-        std::vector<std::vector<RuleExecutionDetails>> tmpExtIDBRules(nStratificationClasses);
-        for (int k = 0; k < originalRuleset.size(); k++) {
-            for(auto &r : originalRuleset[k]) {
-                if (r.rule.isExistential()) {
+
+        //Split IDB rules into existential and non existential
+        std::vector<std::vector<RuleExecutionDetails>> tmpIDBRules(nStratificationClasses);    //non-existential IDB rules
+        std::vector<std::vector<RuleExecutionDetails>> tmpExtIDBRules(nStratificationClasses); //existential IDB rules
+        for (int k = 0; k < allIDBRules.size(); k++) {
+            for(auto &r : allIDBRules[k]) {
+                if (!r.rule.isExistential()) {
+                    tmpIDBRules[k].push_back(r);
+                } else {
                     tmpExtIDBRules[k].push_back(r);
+
                 }
             }
         }
+
         int loopNr = 0;
         std::vector<RuleExecutionDetails> emptyRuleset;
         bool mayHaveTimeout = timeout != NULL && *timeout != 0;
