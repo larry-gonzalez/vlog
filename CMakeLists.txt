@@ -91,7 +91,8 @@ IF(TRIDENT_LIB)
     LINK_DIRECTORIES("${TRIDENT_LIB}/")
 ELSE()
     ExternalProject_Add(git-trident
-        DOWNLOAD_COMMAND git clone https://github.com/karmaresearch/trident.git
+        GIT_REPOSITORY https://github.com/karmaresearch/trident.git
+        GIT_TAG 0cd90730d06a88cea2d7d86ec9c694e19e10c943
         DOWNLOAD_DIR .
         SOURCE_DIR trident
         BUILD_IN_SOURCE 1
